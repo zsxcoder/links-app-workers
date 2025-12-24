@@ -116,7 +116,7 @@ export default `<!DOCTYPE html>
             padding: 15px;
             border-bottom: 1px solid var(--border-color);
             display: grid;
-            grid-template-columns: 1fr 2fr 1fr 1fr 150px;
+            grid-template-columns: 1fr 2fr 1fr 1fr 80px 150px;
             gap: 15px;
             align-items: center;
         }
@@ -185,7 +185,14 @@ export default `<!DOCTYPE html>
                 grid-template-columns: 1fr;
                 gap: 10px;
             }
-            
+
+            .link-row > div:nth-child(5) {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 5px 0;
+            }
+
             .filter-bar {
                 flex-direction: column;
                 align-items: stretch;
@@ -402,6 +409,7 @@ export default `<!DOCTYPE html>
                         <div>描述</div>
                         <div>提交者</div>
                         <div>状态</div>
+                        <div>推荐</div>
                         <div>操作</div>
                     </div>
                 </div>
@@ -546,6 +554,16 @@ export default `<!DOCTYPE html>
                 document.getElementById('links-table-body').addEventListener('click', (e) => {
                     const target = e.target;
                     console.log('Click event on:', target.tagName, target.className, target);
+
+                    // 处理推荐复选框
+                    if (target.classList.contains('recommend-checkbox')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const linkId = target.dataset.id;
+                        this.toggleRecommend(linkId, target.checked);
+                        return;
+                    }
+
                     const button = target.closest('button[data-id]');
                     console.log('Found button:', button);
                     if (button) {
@@ -714,6 +732,9 @@ export default `<!DOCTYPE html>
                         '<div>' +
                             '<span class="status-badge status-' + link.status + '">' + (link.status === 'pending' ? '待审核' : (link.status === 'approved' ? '已批准' : '已拒绝')) + '</span>' +
                         '</div>' +
+                        '<div style="text-align: center;">' +
+                            '<input type="checkbox" class="recommend-checkbox" data-id="' + link.id + '" ' + (link.recommend ? 'checked' : '') + ' style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary-color);">' +
+                        '</div>' +
                         '<div class="action-buttons">' +
                             '<button class="btn btn-small" data-id="' + link.id + '" data-action="edit" style="background: #3b82f6;">编辑</button>' +
                             (link.status === 'pending'
@@ -744,6 +765,50 @@ export default `<!DOCTYPE html>
                 this.currentPage = page;
                 this.renderLinks(document.getElementById('status-filter').value);
             }
+            async toggleRecommend(linkId, isRecommended) {
+                try {
+                    const response = await fetch('/api/links/' + linkId, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + this.token
+                        },
+                        body: JSON.stringify({ action: 'toggleRecommend' })
+                    });
+
+                    const result = await response.json();
+                    console.log('Toggle recommend response:', result);
+
+                    if (response.ok) {
+                        this.showMessage(result.message, 'success');
+                        await this.loadLinks(); // 重新加载数据
+                        // 确保复选框状态正确
+                        setTimeout(() => {
+                            const checkbox = document.querySelector('.recommend-checkbox[data-id="' + linkId + '"]');
+                            if (checkbox) {
+                                checkbox.checked = result.recommend;
+                                console.log('Checkbox set to:', result.recommend, 'for link:', linkId);
+                            }
+                        }, 100);
+                    } else {
+                        // 如果失败，恢复复选框状态
+                        const checkbox = document.querySelector('.recommend-checkbox[data-id="' + linkId + '"]');
+                        if (checkbox) {
+                            checkbox.checked = !isRecommended;
+                        }
+                        this.showMessage('操作失败：' + result.error, 'error');
+                    }
+                } catch (error) {
+                    console.error('Toggle recommend error:', error);
+                    // 如果失败，恢复复选框状态
+                    const checkbox = document.querySelector('.recommend-checkbox[data-id="' + linkId + '"]');
+                    if (checkbox) {
+                        checkbox.checked = !isRecommended;
+                    }
+                    this.showMessage('操作失败', 'error');
+                }
+            }
+
             async manageLink(linkId, action) {
                 const reason = action === 'reject' ? prompt('请输入拒绝原因（可选）：') : '';
                 

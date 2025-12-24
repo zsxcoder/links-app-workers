@@ -238,6 +238,7 @@ export async function handleGetLinks(request, env) {
       rss: link.rss || '',
       submittedAt: link.submittedAt,
       status: link.status,
+      recommend: link.recommend || false,
       submittedBy: link.submittedBy,
     }) : ({
       id: link.id,
@@ -248,6 +249,7 @@ export async function handleGetLinks(request, env) {
       rss: link.rss || '',
       submittedAt: link.submittedAt,
       status: link.status,
+      recommend: link.recommend || false,
     }));
 
     // 按提交时间排序
@@ -299,10 +301,10 @@ export async function handleManageLink(request, env) {
     }
 
     // 解析请求体
-    const { action, reason, name, link, avatar, descr, rss } = await request.json();
+    const { action, reason, name, link, avatar, descr, rss, recommend } = await request.json();
 
-    if (!action || !['approve', 'reject', 'delete', 'edit'].includes(action)) {
-      return errorResponse('无效的操作，支持的操作：approve, reject, delete, edit', 400);
+    if (!action || !['approve', 'reject', 'delete', 'edit', 'toggleRecommend'].includes(action)) {
+      return errorResponse('无效的操作，支持的操作：approve, reject, delete, edit, toggleRecommend', 400);
     }
 
     // 获取友链数据
@@ -344,6 +346,13 @@ export async function handleManageLink(request, env) {
       targetLink.avatar = avatar ? avatar.trim() : '';
       targetLink.descr = descr ? descr.trim() : '';
       targetLink.rss = rss ? rss.trim() : '';
+
+      // 更新单个友链记录
+      await env.LINKS_KV.put(`link:${linkId}`, JSON.stringify(targetLink));
+    } else if (action === 'toggleRecommend') {
+      // 切换推荐状态
+      const currentRecommend = !!targetLink.recommend; // 转换为布尔值
+      targetLink.recommend = !currentRecommend;
 
       // 更新单个友链记录
       await env.LINKS_KV.put(`link:${linkId}`, JSON.stringify(targetLink));
@@ -389,9 +398,12 @@ export async function handleManageLink(request, env) {
 
     return jsonResponse({
       success: true,
-      message: `友链${action === 'approve' ? '批准' : action === 'reject' ? '拒绝' : action === 'edit' ? '修改' : '删除'}成功`,
+      message: action === 'toggleRecommend'
+        ? `友链${targetLink.recommend ? '已推荐' : '已取消推荐'}`
+        : `友链${action === 'approve' ? '批准' : action === 'reject' ? '拒绝' : action === 'edit' ? '修改' : '删除'}成功`,
       linkId: linkId,
       action: action,
+      recommend: targetLink.recommend || false,
     });
 
   } catch (error) {
