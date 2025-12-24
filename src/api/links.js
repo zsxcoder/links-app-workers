@@ -27,6 +27,14 @@ function validateLinkData(data) {
     }
   }
 
+  if (data.rss && typeof data.rss === 'string' && data.rss.trim().length > 0) {
+    try {
+      new URL(data.rss);
+    } catch {
+      errors.push('RSS 订阅链接格式不正确');
+    }
+  }
+
   if (data.name && data.name.length > 100) {
     errors.push('网站名称不能超过100个字符');
   }
@@ -112,6 +120,7 @@ export async function handleSubmitLink(request, env) {
       link: linkData.link.trim(),
       avatar: linkData.avatar ? linkData.avatar.trim() : '',
       descr: linkData.descr ? linkData.descr.trim() : '',
+      rss: linkData.rss ? linkData.rss.trim() : '',
       submittedBy: {
         id: user.id,
         login: user.login,
@@ -219,12 +228,24 @@ export async function handleGetLinks(request, env) {
     }
 
     // 移除敏感信息（对于非管理员请求）
-    const publicLinks = filteredLinks.map(link => ({
+    const isAdmin = status === 'all' || status === 'pending' || status === 'rejected';
+    const publicLinks = filteredLinks.map(link => isAdmin ? ({
       id: link.id,
       name: link.name,
       link: link.link,
       avatar: link.avatar,
       descr: link.descr,
+      rss: link.rss || '',
+      submittedAt: link.submittedAt,
+      status: link.status,
+      submittedBy: link.submittedBy,
+    }) : ({
+      id: link.id,
+      name: link.name,
+      link: link.link,
+      avatar: link.avatar,
+      descr: link.descr,
+      rss: link.rss || '',
       submittedAt: link.submittedAt,
       status: link.status,
     }));
@@ -278,10 +299,10 @@ export async function handleManageLink(request, env) {
     }
 
     // 解析请求体
-    const { action, reason } = await request.json();
+    const { action, reason, name, link, avatar, descr, rss } = await request.json();
 
-    if (!action || !['approve', 'reject', 'delete'].includes(action)) {
-      return errorResponse('无效的操作，支持的操作：approve, reject, delete', 400);
+    if (!action || !['approve', 'reject', 'delete', 'edit'].includes(action)) {
+      return errorResponse('无效的操作，支持的操作：approve, reject, delete, edit', 400);
     }
 
     // 获取友链数据
@@ -310,6 +331,22 @@ export async function handleManageLink(request, env) {
       // 删除友链
       links.splice(linkIndex, 1);
       await env.LINKS_KV.delete(`link:${linkId}`);
+    } else if (action === 'edit') {
+      // 编辑友链
+      const validationErrors = validateLinkData({ name, link, avatar, descr, rss });
+      if (validationErrors.length > 0) {
+        return errorResponse(validationErrors.join(', '), 400);
+      }
+
+      // 更新友链信息
+      targetLink.name = name.trim();
+      targetLink.link = link.trim();
+      targetLink.avatar = avatar ? avatar.trim() : '';
+      targetLink.descr = descr ? descr.trim() : '';
+      targetLink.rss = rss ? rss.trim() : '';
+
+      // 更新单个友链记录
+      await env.LINKS_KV.put(`link:${linkId}`, JSON.stringify(targetLink));
     } else {
       // 更新友链状态
       targetLink.status = action === 'approve' ? 'approved' : 'rejected';
@@ -352,7 +389,7 @@ export async function handleManageLink(request, env) {
 
     return jsonResponse({
       success: true,
-      message: `友链${action === 'approve' ? '批准' : action === 'reject' ? '拒绝' : '删除'}成功`,
+      message: `友链${action === 'approve' ? '批准' : action === 'reject' ? '拒绝' : action === 'edit' ? '修改' : '删除'}成功`,
       linkId: linkId,
       action: action,
     });

@@ -40,6 +40,12 @@ class LinkApp {
       logoutBtn.addEventListener('click', () => this.logout());
     }
 
+    // 管理面板按钮
+    const adminBtn = document.getElementById('admin-btn');
+    if (adminBtn) {
+      adminBtn.addEventListener('click', () => window.location.href = '/admin');
+    }
+
     // 表单提交
     const linkForm = document.getElementById('link-form');
     if (linkForm) {
@@ -65,14 +71,9 @@ class LinkApp {
 
       if (response.ok) {
         // 是管理员
-        console.log('User is admin, current path:', window.location.pathname);
-        if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
-          console.log('Redirecting to admin...');
-          window.location.href = '/admin';
-          return;
-        }
-        // 如果已经在管理页面，解析用户信息
+        console.log('User is admin, showing admin button');
         this.user = this.parseTokenPayload(this.token);
+        this.showAdminButton();
         this.showUserSection();
       } else if (response.status === 403) {
         // 普通用户，继续正常流程
@@ -122,9 +123,14 @@ class LinkApp {
     document.getElementById('login-section').style.display = 'block';
     document.getElementById('auth-status').style.display = 'none';
     document.getElementById('submit-section').style.display = 'none';
+    document.getElementById('admin-btn').style.display = 'none';
   }
 
-  showAuthenticatedSection() {
+  showAdminButton() {
+    document.getElementById('admin-btn').style.display = 'inline-block';
+  }
+
+  showUserSection() {
     document.getElementById('login-section').style.display = 'none';
     document.getElementById('auth-status').style.display = 'block';
     document.getElementById('submit-section').style.display = 'block';
@@ -152,7 +158,8 @@ class LinkApp {
         name: formData.get('name').trim(),
         link: formData.get('link').trim(),
         avatar: formData.get('avatar').trim(),
-        descr: formData.get('descr').trim()
+        descr: formData.get('descr').trim(),
+        rss: formData.get('rss').trim()
       };
 
       const response = await fetch('/api/submit', {

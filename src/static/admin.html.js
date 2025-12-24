@@ -195,7 +195,7 @@ export default `<!DOCTYPE html>
         /* 弹窗样式 */
         .modal {
             position: fixed;
-            z-index: 1000;
+            z-index: 9999;
             left: 0;
             top: 0;
             width: 100%;
@@ -343,7 +343,10 @@ export default `<!DOCTYPE html>
 <body>
     <div class="admin-container">
         <div class="admin-header">
-            <h1>🔗 友链管理后台</h1>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <h1>🔗 友链管理后台</h1>
+                <a href="/" class="btn btn-secondary" style="text-decoration: none; padding: 10px 20px; font-size: 0.9rem;">回到首页</a>
+            </div>
             <div class="user-info" id="admin-user-info" style="display: none;">
                 <img id="admin-avatar" src="" alt="管理员头像" class="user-avatar">
                 <div class="user-details">
@@ -443,9 +446,61 @@ export default `<!DOCTYPE html>
                                   placeholder="简单介绍一下网站 (可选)"></textarea>
                     </div>
                     
+                    <div class="form-group">
+                        <label for="modal-rss">RSS 订阅</label>
+                        <input type="url" id="modal-rss" name="rss"
+                               placeholder="https://example.com/rss.xml (可选)">
+                    </div>
+                    
                     <div class="form-actions">
                         <button type="button" id="cancel-add" class="btn btn-secondary">取消</button>
                         <button type="submit" id="submit-add" class="btn btn-primary">添加友链</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 编辑友链弹窗 -->
+        <div id="edit-link-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>编辑友链</h3>
+                    <span class="close" id="close-edit-modal">&times;</span>
+                </div>
+                <form id="edit-link-form" class="modal-body">
+                    <div class="form-group">
+                        <label for="edit-name">网站名称 *</label>
+                        <input type="text" id="edit-name" name="name" required maxlength="50" 
+                               placeholder="请输入网站名称">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-link">网站链接 *</label>
+                        <input type="url" id="edit-link" name="link" required 
+                               placeholder="https://example.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-avatar">网站图标 *</label>
+                        <input type="url" id="edit-avatar" name="avatar" required
+                               placeholder="https://example.com/avatar.png">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-descr">网站描述</label>
+                        <textarea id="edit-descr" name="descr" rows="3" maxlength="200" 
+                                  placeholder="简单介绍一下网站 (可选)"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-rss">RSS 订阅</label>
+                        <input type="url" id="edit-rss" name="rss"
+                               placeholder="https://example.com/rss.xml (可选)">
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" id="cancel-edit" class="btn btn-secondary">取消</button>
+                        <button type="submit" id="submit-edit" class="btn btn-primary">保存修改</button>
                     </div>
                 </form>
             </div>
@@ -482,10 +537,42 @@ export default `<!DOCTYPE html>
                 document.getElementById('cancel-add').addEventListener('click', () => this.hideAddLinkModal());
                 document.getElementById('add-link-form').addEventListener('submit', (e) => this.handleAddLink(e));
                 
+                // 编辑友链相关事件
+                document.getElementById('close-edit-modal').addEventListener('click', () => this.hideEditLinkModal());
+                document.getElementById('cancel-edit').addEventListener('click', () => this.hideEditLinkModal());
+                document.getElementById('edit-link-form').addEventListener('submit', (e) => this.handleEditLink(e));
+                
+                // 友链操作按钮事件委托
+                document.getElementById('links-table-body').addEventListener('click', (e) => {
+                    const target = e.target;
+                    console.log('Click event on:', target.tagName, target.className, target);
+                    const button = target.closest('button[data-id]');
+                    console.log('Found button:', button);
+                    if (button) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const linkId = button.dataset.id;
+                        const action = button.dataset.action;
+                        console.log('Link ID:', linkId, 'Action:', action);
+                        if (action === 'edit') {
+                            this.showEditLinkModal(linkId);
+                        } else {
+                            this.manageLink(linkId, action);
+                        }
+                    } else {
+                        console.log('No button found with data-id attribute');
+                    }
+                });
+                
                 // 点击弹窗外部关闭
                 document.getElementById('add-link-modal').addEventListener('click', (e) => {
                     if (e.target.id === 'add-link-modal') {
                         this.hideAddLinkModal();
+                    }
+                });
+                document.getElementById('edit-link-modal').addEventListener('click', (e) => {
+                    if (e.target.id === 'edit-link-modal') {
+                        this.hideEditLinkModal();
                     }
                 });
             }
@@ -498,7 +585,7 @@ export default `<!DOCTYPE html>
 
                 try {
                     const response = await fetch('/api/links?status=all', {
-                        headers: { 'Authorization': \`Bearer \${this.token}\` }
+                        headers: { 'Authorization': 'Bearer ' + this.token }
                     });
 
                     if (response.ok) {
@@ -562,7 +649,7 @@ export default `<!DOCTYPE html>
             async loadLinks() {
                 try {
                     const response = await fetch('/api/links?status=all', {
-                        headers: { 'Authorization': \`Bearer \${this.token}\` }
+                        headers: { 'Authorization': 'Bearer ' + this.token }
                     });
 
                     if (response.ok) {
@@ -628,6 +715,7 @@ export default `<!DOCTYPE html>
                             '<span class="status-badge status-' + link.status + '">' + (link.status === 'pending' ? '待审核' : (link.status === 'approved' ? '已批准' : '已拒绝')) + '</span>' +
                         '</div>' +
                         '<div class="action-buttons">' +
+                            '<button class="btn btn-small" data-id="' + link.id + '" data-action="edit" style="background: #3b82f6;">编辑</button>' +
                             (link.status === 'pending'
                                 ? '<button class="btn btn-small btn-approve" data-id="' + link.id + '" data-action="approve">批准</button>' +
                                   '<button class="btn btn-small btn-reject" data-id="' + link.id + '" data-action="reject">拒绝</button>'
@@ -664,11 +752,11 @@ export default `<!DOCTYPE html>
                 }
 
                 try {
-                    const response = await fetch(\`/api/links/\${linkId}\`, {
+                    const response = await fetch('/api/links/' + linkId, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': \`Bearer \${this.token}\`
+                            'Authorization': 'Bearer ' + this.token
                         },
                         body: JSON.stringify({ action, reason })
                     });
@@ -679,7 +767,7 @@ export default `<!DOCTYPE html>
                         this.showMessage(result.message, 'success');
                         this.loadLinks(); // 重新加载数据
                     } else {
-                        this.showMessage(\`操作失败：\${result.error}\`, 'error');
+                        this.showMessage('操作失败：' + result.error, 'error');
                     }
                 } catch (error) {
                     console.error('Manage link error:', error);
@@ -723,6 +811,104 @@ export default `<!DOCTYPE html>
                 document.getElementById('add-link-form').reset();
             }
 
+            showEditLinkModal(linkId) {
+                console.log('showEditLinkModal called with linkId:', linkId);
+                console.log('Available links:', this.links);
+                const link = this.links.find(l => l.id === linkId);
+                if (!link) {
+                    console.log('Link not found for id:', linkId);
+                    return;
+                }
+                console.log('Found link:', link);
+
+                document.getElementById('edit-name').value = link.name;
+                document.getElementById('edit-link').value = link.link;
+                document.getElementById('edit-avatar').value = link.avatar;
+                document.getElementById('edit-descr').value = link.descr || '';
+                document.getElementById('edit-rss').value = link.rss || '';
+                document.getElementById('edit-link-form').dataset.linkId = linkId;
+                
+                const modal = document.getElementById('edit-link-modal');
+                console.log('Modal element:', modal);
+                console.log('Modal before - display:', window.getComputedStyle(modal).display);
+                
+                // 强制显示，使用 !important 覆盖任何可能冲突的样式
+                modal.style.setProperty('display', 'flex', 'important');
+                modal.style.setProperty('z-index', '9999', 'important');
+                
+                // 延迟确保 DOM 更新
+                setTimeout(() => {
+                    console.log('Modal after timeout - display:', window.getComputedStyle(modal).display);
+                    console.log('Modal computed styles:', window.getComputedStyle(modal));
+                    console.log('Modal offset:', modal.offsetLeft, modal.offsetTop);
+                    console.log('Modal dimensions:', modal.offsetWidth, modal.offsetHeight);
+                    console.log('Modal rect:', modal.getBoundingClientRect());
+                    document.getElementById('edit-name').focus();
+                    console.log('Modal should be visible now, focus set');
+                }, 100);
+            }
+
+            hideEditLinkModal() {
+                document.getElementById('edit-link-modal').style.display = 'none';
+                document.getElementById('edit-link-form').reset();
+                delete document.getElementById('edit-link-form').dataset.linkId;
+            }
+
+            async handleEditLink(event) {
+                event.preventDefault();
+                
+                const submitBtn = document.getElementById('submit-edit');
+                const originalText = submitBtn.textContent;
+                const linkId = document.getElementById('edit-link-form').dataset.linkId;
+                
+                if (!linkId) {
+                    this.showMessage('无法获取友链 ID', 'error');
+                    return;
+                }
+                
+                try {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = '保存中...';
+
+                    const formData = new FormData(event.target);
+                    const linkData = {
+                        name: formData.get('name').trim(),
+                        link: formData.get('link').trim(),
+                        avatar: formData.get('avatar').trim(),
+                        descr: formData.get('descr').trim(),
+                        rss: formData.get('rss').trim()
+                    };
+
+                    const response = await fetch('/api/links/' + linkId, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + this.token
+                        },
+                        body: JSON.stringify({
+                            action: 'edit',
+                            ...linkData
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        this.showMessage('友链修改成功！', 'success');
+                        this.hideEditLinkModal();
+                        this.loadLinks();
+                    } else {
+                        this.showMessage('修改失败：' + result.error, 'error');
+                    }
+                } catch (error) {
+                    console.error('Edit link error:', error);
+                    this.showMessage('修改友链时发生错误', 'error');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                }
+            }
+
             async handleAddLink(event) {
                 event.preventDefault();
                 
@@ -738,14 +924,15 @@ export default `<!DOCTYPE html>
                         name: formData.get('name').trim(),
                         link: formData.get('link').trim(),
                         avatar: formData.get('avatar').trim(),
-                        descr: formData.get('descr').trim()
+                        descr: formData.get('descr').trim(),
+                        rss: formData.get('rss').trim()
                     };
 
                     const response = await fetch('/api/submit', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': \`Bearer \${this.token}\`
+                            'Authorization': 'Bearer ' + this.token
                         },
                         body: JSON.stringify(linkData)
                     });
@@ -759,7 +946,7 @@ export default `<!DOCTYPE html>
                         this.hideAddLinkModal();
                         this.loadLinks();
                     } else {
-                        this.showMessage(\`添加失败：\${result.error}\`, 'error');
+                        this.showMessage('添加失败：' + result.error, 'error');
                     }
                 } catch (error) {
                     console.error('Add link error:', error);

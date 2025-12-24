@@ -177,6 +177,18 @@ body {
   background-color: #b91c1c;
 }
 
+.btn-admin {
+  background-color: var(--warning-color);
+  color: white;
+  margin-right: 8px;
+}
+
+.btn-admin:hover {
+  background-color: #d97706;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;

@@ -23,6 +23,7 @@ export default `<!DOCTYPE html>
                         <span id="user-name" class="user-name"></span>
                         <span id="user-login" class="user-login"></span>
                     </div>
+                    <button id="admin-btn" class="btn btn-admin" style="display: none;">管理面板</button>
                     <button id="logout-btn" class="btn btn-secondary">退出登录</button>
                 </div>
             </div>
@@ -68,6 +69,12 @@ export default `<!DOCTYPE html>
                             <label for="descr">网站描述</label>
                             <textarea id="descr" name="descr" rows="4" maxlength="500" 
                                       placeholder="简单介绍一下您的网站 (可选)"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="rss">RSS 订阅</label>
+                            <input type="url" id="rss" name="rss" 
+                                   placeholder="https://example.com/rss.xml (可选)">
                         </div>
 
                         <div class="form-actions">
