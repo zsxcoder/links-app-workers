@@ -1,12 +1,12 @@
 {
   "name": "links-app-workers",
   "main": "src/index.js",
-  "compatibility_date": "2025-07-18",
+  "compatibility_date": "2025-12-24",
   "kv_namespaces": [
     {
       "binding": "LINKS_KV",
-      "id": "74d5c7695c8e43cca594d50f630e1fcc",
-      "preview_id": "c0f9317570d44263a8893c0df32b4205"
+      "id": "74d5ererqeeqweqrerf630e1freqreqr",
+      "preview_id": "c0f9317weqwwrrea889rqrrqer"
     }
   ]
 }
